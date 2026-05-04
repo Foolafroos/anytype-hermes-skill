@@ -14,9 +14,9 @@
 | Feature | Anytype | Notion | Obsidian |
 |---|---|---|---|
 | **Data ownership** | ✅ 100% local + encrypted sync | ❌ Hosted on their servers | ✅ Local files |
-| **End-to-end encryption** | ✅ Built-in (Object Encryption) | ❌ Server-side only | ❌ Optional (3rd party) |
+| **End-to-end encryption** | ✅ Built-in (Object Encryption) | ❌ Server-side only | ❌ None |
 | **Offline-first** | ✅ Works without internet | ❌ Requires connection | ✅ Local markdown |
-| **Vendor lock-in** | ❌ Open format, exportable | ✅ Hard to leave | ✅ Plain markdown |
+| **Vendor lock-in** | ✅ Open format, exportable | ❌ Hard to leave | ✅ Plain markdown |
 | **AI training on your data** | ❌ Never | ✅ Yes (ToS allows it) | ❌ No |
 | **Decentralized sync** | ✅ IPFS + ActivityPub | ❌ Centralized cloud | ❌ Manual/Git |
 | **MCP integration** | ✅ Official server | ⚠️ Community workarounds | ⚠️ Community workarounds |

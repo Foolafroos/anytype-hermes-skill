@@ -48,17 +48,17 @@ npx -y @anyproto/anytype-mcp
 
 > **NOTE:** The MCP server runs on stdio and expects JSON-RPC payloads. Use Python subprocess for reliable execution.
 
-## 🎨 Formatting Standards (Option B)
+## 🎨 Formatting Standards
 
-All generated pages must follow the **Option B** layout:
+All generated pages should follow a consistent layout:
 
 1. **Frontmatter**: YAML block with `title`, `type`, `tags`, `created`, `updated`, `status`
 2. **Header**: H1 — do NOT put emoji in the title text; use the dedicated `icon` field instead
 3. **Structure**: Use ╔═══ boxes for important info/summaries
 
-### 🖼️ Icons (MANDATORY — user preference)
+### 🖼️ Icons (MANDATORY)
 
-**Every created object MUST have an icon.** The user explicitly requires this and gets frustrated when icons are missing.
+**Every created object MUST have an icon.** This is a common user expectation and should always be included.
 
 - Set the icon via `API-update-object` AFTER creation (create doesn't support it inline reliably)
 - Pass `icon` as a **JSON object/dict**, NOT a string:
@@ -67,7 +67,7 @@ All generated pages must follow the **Option B** layout:
   "icon": '{"format":"emoji","emoji":"🧪"}'     # ✗ wrong — string → 400 bad_request
   ```
 - Pick an emoji that matches the object's purpose (task → ✅, page → 📄, meeting → 🤝, etc.)
-- Never skip this step. If you forget, the user will call it out.
+- Never skip this step - objects without icons look unfinished and inconsistent.
 
 Example post-create icon update:
 ```python
@@ -86,7 +86,16 @@ payload = json.dumps({
 }) + "\n"
 ```
 
-## 🛠️ Core Methods to Use\n\n| Method | What | Notes |\n|--------|------|-------|\n| `API-search-space` | Find objects by query | Use `query` parameter |\n| `API-create-object` | Create notes, tasks, bookmarks, etc. | `type_key` can be `note`, `task`, `bookmark`, `collection`, `set`. **Critical**: Must include `space_id` in arguments for ALL operations (including create). Example payload:\n```python\npayload = json.dumps({\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"API-create-object\",\n        \"arguments\": {\n            \"space_id\": \"<SPACE_ID>\",\n            \"name\": \"Object Name\",\n            \"type_key\": \"page\",\n            \"body\": \"Content here\"\n        }\n    }\n}) + \"\\n\"\n``` |\n| `API-update-object` | Modify existing content or metadata | Requires `object_id` and `space_id` in arguments |\n| `API-delete-object` | Delete objects | Requires `object_id` and `space_id` in arguments |
+## 🛠️ Core Methods to Use
+
+| Method | What | Notes |
+|--------|------|-------|
+| `API-search-space` | Find objects by query | Use `query` parameter |
+| `API-create-object` | Create notes, tasks, bookmarks, etc. | `type_key` can be `note`, `task`, `bookmark`, `collection`, `set`. **Critical**: Must include `space_id` in arguments for ALL operations (including create) |
+| `API-update-object` | Modify existing content or metadata | Requires `object_id` and `space_id` in arguments |
+| `API-delete-object` | Delete objects | Requires `object_id` and `space_id` in arguments |
+| `API-get-object` | Retrieve object details | Requires `object_id` and `space_id` in arguments |
+| `API-search-global` | Search across all spaces | Returns nested structure - parse `content[0].text` |
 
 **Important:** Ensure `space_id` is correct for your workspace.
 
@@ -142,34 +151,33 @@ npx -y @anyproto/anytype-mcp call --stdio API-search-space \
    - Use direct JSON-RPC injection via standard input to the MCP server process
    - **Fallback Pattern (via Python/Terminal):**
      ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+# Use subprocess with env var for each call
+# See references/jsonrpc-pattern.md for detailed examples
 ```
 
-5. **Search Result Parsing**
+6. **Search Result Parsing**
    - `API-search-global` via `tools/call` returns a nested structure
    - The actual data is inside `content[0].text` as a JSON string
    - You must parse this string to access the `data` array containing object information
 
-6. **Persistent MCP Process Instability (CRITICAL FOR BULK OPERATIONS)**
+7. **Persistent MCP Process Instability (CRITICAL FOR BULK OPERATIONS)**
    - **Problem:** Persistent MCP server processes crash after 5-10 requests with "Connection closed" errors
    - **Solution:** Always use individual subprocess calls for bulk operations (one npx call per request)
    - **Impact:** Slower due to npx startup time, but reliable
-   - **Example:** For 400+ bookmarks, use 400 separate subprocess calls, NOT one persistent connection
+   - **Example:** For large batch operations, use separate subprocess calls, NOT one persistent connection
 
-7. **API-update-object with `links` Parameter (KNOWN LIMITATION)**
+8. **API-update-object with `links` Parameter (KNOWN LIMITATION)**
    - **Problem:** Attempting to add objects to collections via `API-update-object` with `links` parameter returns "failed to retrieve object" errors
    - **Root Cause:** Anytype MCP API doesn't support adding objects to collections via this method
    - **Workaround:** Use Anytype desktop app to manually add objects to collections, or wait for API support
-   - **Example:** Creating 421 Twitter bookmarks worked, but adding them to collections failed
 
-8. **Token Expiration**
+9. **Token Expiration**
    - Anytype tokens may expire
    - Regenerate token in Settings → API Keys if you get authentication errors
 
-9. **Icon Format — JSON Object, NOT String (DISCOVERED 2026-05-03)**
-   - **Problem:** Passing `icon` as a string `'{"format":"emoji","emoji":"🧪"}'` returns `400 bad_request: json: cannot unmarshal string into Go struct field UpdateObjectRequest.icon`
-   - **Solution:** Pass `icon` as a native Python dict / JSON object: `{"format": "emoji", "emoji": "🧪"}`
+10. **Icon Format — JSON Object, NOT String**
+   - **Problem:** Passing `icon` as a string returns `400 bad_request: json: cannot unmarshal string into Go struct field UpdateObjectRequest.icon`
+   - **Solution:** Pass `icon` as a native Python dict / JSON object
    - `json.dumps()` will serialize it correctly — just don't pre-stringify the icon value
 
 ### Verification Steps
@@ -185,32 +193,88 @@ After any operation, verify:
 
 ### Create a Task
 ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "API-create-object",
+        "arguments": {
+            "space_id": "<SPACE_ID>",
+            "type_key": "task",
+            "name": "My new task",
+            "body": [{"type": "paragraph", "content": [{"text": {"text": "Task description here"}}]}]
+        }
+    }
+}) + "\n"
+# Then update with icon: API-update-object with icon={"format": "emoji", "emoji": "✅"}
 ```
 
 ### Search for Notes
 ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "API-search-space",
+        "arguments": {
+            "space_id": "<SPACE_ID>",
+            "query": "search term"
+        }
+    }
+}) + "\n"
+# Parse response: json.loads(out)["result"]["content"][0]["text"] → then parse again for data array
 ```
 
 ### Update an Object (with Markdown Content)
 ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "API-update-object",
+        "arguments": {
+            "space_id": "<SPACE_ID>",
+            "object_id": "<OBJECT_ID>",
+            "body": [{"type": "heading", "content": [{"text": {"text": "Updated Title"}}]}]
+        }
+    }
+}) + "\n"
 ```
 
 ### Get an Object (Correct Parameters)
 ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "API-get-object",
+        "arguments": {
+            "space_id": "<SPACE_ID>",
+            "object_id": "<OBJECT_ID>"
+        }
+    }
+}) + "\n"
+# IMPORTANT: space_id is required even for get operations!
 ```
 
 ### Delete an Object
 ```python
-# See Anytype MCP docs for full code examples
-# Pattern: Set OPENAPI_MCP_HEADERS env var, then call npx @anyproto/anytype-mcp with JSON-RPC payload
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "API-delete-object",
+        "arguments": {
+            "space_id": "<SPACE_ID>",
+            "object_id": "<OBJECT_ID>"
+        }
+    }
+}) + "\n"
 ```
 
 ## 🔍 Debugging Tips
